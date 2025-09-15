@@ -1,0 +1,7 @@
+python3-opencv
+ffmpeg
+libavcodec-extra
+libsm6
+libxext6
+libfontconfig1
+libxrender1
