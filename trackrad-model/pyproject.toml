@@ -1,0 +1,58 @@
+[project]
+name = "trackrad-model"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "nnunetv2",
+    "pillow>=11.2.1",
+    "sam-2",
+    "simpleitk>=2.5.2",
+]
+
+[project.optional-dependencies]
+# For reproducibility, pin dependencies to versions installed in Colab as of June 2025
+cpu = ["torch~=2.6.0", "torchvision~=0.21.0"]
+cu124 = ["torch~=2.6.0", "torchvision~=0.21.0"]
+
+[tool.uv]
+conflicts = [[{ extra = "cpu" }, { extra = "cu124" }]]
+
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu124", extra = "cu124" },
+]
+torchvision = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu124", extra = "cu124" },
+]
+sam-2 = { path = "sam2" }
+nnunetv2 = { path = "nnUNet", editable = true }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[dependency-groups]
+dev = [
+    "datasets>=3.6.0",
+    "ipykernel>=6.29.5",
+    "ipywidgets>=8.1.7",
+    "matplotlib>=3.10.3",
+    "pandas>=2.3.0",
+    "scikit-image>=0.25.2",
+    "scikit-learn>=1.7.1",
+    "scipy>=1.16.0",
+    "submitit>=1.5.3",
+    "tensorboard>=2.20.0",
+    "torchio>=0.20.19",
+]
