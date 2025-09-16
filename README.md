@@ -4,7 +4,7 @@ Team YouBetcha's submission to the [TrackRAD2025 Grand Challenge](https://trackr
 
 TrackRAD2025 was an open competition to develop methods for real-time tumor tracking in 2D magnetic resonance imaging (MRI) videos.
 
-Our approach uses [Segment Anything Model 2](https://github.com/facebookresearch/sam2) (SAM2), a foundation model for video object segmentation, and [nnU-Net](https://github.com/MIC-DKFZ/nnUNet), an auto-configuring U-Net framework. We also developed a web application for image annotation to generate training data to finetuning SAM2.
+Our approach uses [Segment Anything Model 2](https://github.com/facebookresearch/sam2) (SAM2), a foundation model for video object segmentation, and [nnU-Net](https://github.com/MIC-DKFZ/nnUNet), an auto-configuring U-Net framework. We also developed a web application for image annotation to generate training data for finetuning SAM2.
 
 Directory structure:
 
