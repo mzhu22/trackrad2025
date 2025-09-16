@@ -26,13 +26,13 @@ This project uses the [uv package manager](https://docs.astral.sh/uv/).
 
 To run the app locally, first install depedencies:
 
-```
+```console
 uv sync
 ```
 
 Then:
 
-```
+```console
 uv run gradio app.py
 ```
 
