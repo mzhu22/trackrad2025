@@ -1,11 +1,5 @@
 # Model
 
-This project uses the [uv package manager](https://docs.astral.sh/uv/).
+NOTE: This project was developed on the Mayo Clinic ROHPC cluster, and was copied from that environment for posterity. The code references filepaths and data that do not exist in the repo. Therefore, it does _not_ run as-is.
 
-## Setup
-
-First, run the following to create the virtualenv and install dependencies:
-
-```console
-uv sync
-```
+Please contact the author if you are interested in a working version.
