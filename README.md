@@ -1,4 +1,4 @@
-# trackrad2025
+# TrackRAD2025 (Mayo Clinic Radiation Oncology)
 
 Team YouBetcha's submission to the [TrackRAD2025 Grand Challenge](https://trackrad2025.grand-challenge.org/).
 
