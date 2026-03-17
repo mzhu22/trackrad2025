@@ -3,6 +3,9 @@
 # NOTE: This probably doesn't actually run as a complete script
 # Instead, each section was copy-pasted into the terminal
 
+## git
+sudo apt-get install git
+
 ## fzf
 git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
 ~/.fzf/install
