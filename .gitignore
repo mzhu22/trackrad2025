@@ -1,1 +1,4 @@
 .DS_Store
+
+data
+trackrad-model/sam2/checkpoints/*.pt

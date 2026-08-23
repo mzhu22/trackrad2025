@@ -7,7 +7,7 @@ requires-python = ">=3.11"
 dependencies = [
     "nnunetv2",
     "pillow>=11.2.1",
-    "sam-2",
+    "sam-2[dev]",
     "simpleitk>=2.5.2",
 ]
 
