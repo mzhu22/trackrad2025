@@ -8,7 +8,7 @@ This is Team YouBetcha's (Mayo Clinic Radiation Oncology) submission to the [Tra
 
 Three independent sub-projects, each with its own `pyproject.toml`/`uv.lock` and no shared dependencies between them (see `trackrad2025.code-workspace` for the VS Code multi-root layout):
 
-- **`trackrad-model/`** — the inference pipeline: SAM2 (video object segmentation) + nnU-Net (mask refinement). This is what's packaged into the Docker container submitted to Grand Challenge.
+- **`trackrad-model/`** — the inference pipeline: SAM2 (video object segmentation). This is what's packaged into the Docker container submitted to Grand Challenge.
 - **`labeling-app/`** — a Gradio web app ("Bouncing Target", deployed to HuggingFace Spaces) used to crowdsource bounding-box annotations, which SAM2 turns into segmentation masks for training data.
 - **`notebooks/`** — statistics/analysis notebooks (R via `rpy2`, GLMM significance testing) and figures for the writeup, decoupled from the other two projects.
 
@@ -17,7 +17,7 @@ Three independent sub-projects, each with its own `pyproject.toml`/`uv.lock` and
 ## Important caveats
 
 - **`trackrad-model` and its scripts do not run as-is.** They were developed on Mayo Clinic's Radiation Oncology HPC cluster and reference absolute filepaths (e.g. `/rodata/mnradonc_dev/m299164/trackrad/...`) and data that don't exist in this repo. Treat `trackrad-model/scripts/*.sh` and the notebooks under `trackrad-model/notebooks/` and `notebooks/` as reference/documentation of what was done, not as runnable entrypoints.
-- `trackrad-model/sam2/` and `trackrad-model/nnUNet/` are vendored copies of the upstream [facebookresearch/sam2](https://github.com/facebookresearch/sam2) and [MIC-DKFZ/nnUNet](https://github.com/MIC-DKFZ/nnUNet) repos (installed as local path dependencies via `uv`, see `trackrad-model/pyproject.toml`'s `[tool.uv.sources]`). Don't assume changes here are TrackRAD-specific — check upstream before modifying.
+- `trackrad-model/sam2/` is a vendored copy of the upstream [facebookresearch/sam2](https://github.com/facebookresearch/sam2) repo (installed as a local path dependency via `uv`, see `trackrad-model/pyproject.toml`'s `[tool.uv.sources]`). Don't assume changes here are TrackRAD-specific — check upstream before modifying.
 - `labeling-app` mostly works locally, but "Submit"/save actions push to a private HuggingFace dataset (`mzhu22/bouncing-target`) using a `HF_TOKEN` env var, so submission won't work without credentials.
 
 ## Development commands
@@ -39,7 +39,7 @@ cd trackrad-model
 docker build -t trackrad-model .
 ```
 
-The Dockerfile installs with the `cu124` extra (`uv sync --extra cu124`) and expects a `resources/` directory (SAM2 + nnU-Net checkpoints) that is not checked into this repo. The container entrypoint is `inference.py`, reading from `/input` and writing to `/output` per the Grand Challenge algorithm interface.
+The Dockerfile installs with the `cu124` extra (`uv sync --extra cu124`) and expects a `resources/` directory (SAM2 checkpoints) that is not checked into this repo. The container entrypoint is `inference.py`, reading from `/input` and writing to `/output` per the Grand Challenge algorithm interface.
 
 There is no test suite, linter config, or CI in this repo.
 
@@ -47,17 +47,16 @@ There is no test suite, linter config, or CI in this repo.
 
 The pipeline processes one "case" (an MRI-linac video + a target mask on frame 0) at a time:
 
-1. **`inference.py`** — entrypoint (`python inference.py`, run as the Docker `ENTRYPOINT`). Reads Grand Challenge–formatted inputs from `/input` (frame-rate/field-strength/scanned-region JSON, `.mha`/`.tiff` image series via SimpleITK), builds the SAM2 video predictor (`setup_sam2`) and an `nnUNetPredictor` (`initialize_from_trained_model_folder`), calls `run_algorithm` from `model.py`, and writes the resulting per-frame mask series back out as `.mha`. Not meant to be modified — algorithm changes go in `model.py`.
+1. **`inference.py`** — entrypoint (`python inference.py`, run as the Docker `ENTRYPOINT`). Reads Grand Challenge–formatted inputs from `/input` (frame-rate/field-strength/scanned-region JSON, `.mha`/`.tiff` image series via SimpleITK), builds the SAM2 video predictor (`setup_sam2`), calls `run_algorithm` from `model.py`, and writes the resulting per-frame mask series back out as `.mha`. Not meant to be modified — algorithm changes go in `model.py`.
 2. **`model.py`** — `run_algorithm` is the actual tracking algorithm:
    - Dumps the input frame series to disk as JPEGs (SAM2's video predictor reads from a directory of frames, not in-memory arrays).
    - Seeds SAM2 with the frame-0 ground-truth mask (`add_new_mask`) and propagates the mask forward through the video (`propagate_in_video`) — this is the core object-tracking step. Note the comment that SAM2 doesn't use future frames despite being given the whole video upfront, so this could be adapted to true real-time/streaming use.
-   - Optionally refines each SAM2-predicted mask with nnU-Net (`do_refinement=True`): builds a sliding window of `refinement_lookback_frames` (raw image + mask channels stacked) and runs `nnUNetPredictor.predict_single_npy_array` per frame.
-   - Fills holes in the final masks (`binary_fill_holes`) to patch known nnU-Net segmentation gaps.
+   - Fills holes in the final masks (`binary_fill_holes`) to patch known segmentation gaps.
 3. **`evaluate.py`** — the Grand Challenge evaluation container's scoring script (not run by contestants directly). Computes Dice, 95th-percentile Hausdorff distance, average surface distance, 2D center-of-mass error, and a custom dosimetric metric (`DoseMetric`, via a shifted-point-cloud DVH approximation) per case, using a vendored `monai_metrics.py` reimplementation and `minimal_mha_simpleitk.py` (a dependency-light `.mha` reader/writer) instead of importing MONAI/SimpleITK directly in the eval container.
 4. **`helpers.py`** — `run_prediction_processing` parallelizes `evaluate.py`'s per-case scoring across processes, capped by `GRAND_CHALLENGE_MAX_WORKERS`.
-5. **`postprocessing.py`** — a MONAI-based `UNet`/`AttentionUnet` mask-refinement model and preprocessing transform pipeline; an earlier/alternate approach to the refinement step now done via nnU-Net in `model.py`.
+5. **`postprocessing.py`** — a MONAI-based `UNet`/`AttentionUnet` mask-refinement model and preprocessing transform pipeline; an earlier/alternate approach to mask refinement not used in the final `model.py` pipeline.
 6. **`vos_inference.py`** — a standalone batch-labeling script (uses `submitit` for Slurm job submission) that runs SAM2 over the *unlabeled* HuggingFace dataset to pre-populate masks — this is the "AI-assisted" half of the labeling-app workflow, run offline rather than interactively.
-7. **`scripts/`** — Slurm shell scripts for nnU-Net planning/training/fold-finding on Mayo's cluster. Not portable outside that environment (hardcoded paths).
+7. **`scripts/`** — Slurm shell scripts and SAM2 finetuning utilities for Mayo's cluster. Not portable outside that environment (hardcoded paths).
 
 ## Architecture: labeling-app
 

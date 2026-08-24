@@ -10,16 +10,13 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import numpy as np
 from PIL import Image
 from scipy.ndimage import binary_fill_holes
-from tqdm.auto import tqdm
 
 if TYPE_CHECKING:
-    from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
-
     from sam2.sam2_video_predictor import SAM2VideoPredictor  # type:ignore
 
 
@@ -68,15 +65,12 @@ LOGIT_THRESHOLD = 0.0
 
 def run_algorithm(
     predictor: SAM2VideoPredictor,
-    refiner: nnUNetPredictor,
     case_id: str,  # unique ID for the case to disambiguate filepaths for saved images
     frames: np.ndarray,
     target: np.ndarray,
     frame_rate: float,
     magnetic_field_strength: float,
     scanned_region: str,
-    refinement_lookback_frames: int,  # sliding window length for nnUNet input
-    do_refinement: bool,  # whether to perform refinement using nnUNet
     save_annotations: bool,  # whether to save annotation PNGs for visualization
 ) -> np.ndarray:
     """Implement your algorithm here.
@@ -125,59 +119,7 @@ def run_algorithm(
 
     masks_array = np.stack(ordered_masks, axis=-1)
 
-    if do_refinement:
-        # Mask refinement using nnUNet
-        assert refiner.list_of_parameters
-        # Store raw image and mask in two channels
-        #
-        # C = 2 * refinement_lookback_frames
-        # (C, 1, W, H, T) array
-        combined_array = np.vstack(
-            [
-                # nnUNet expects (C, 1, W, H) format
-                frames[np.newaxis, np.newaxis],
-                masks_array[np.newaxis, np.newaxis],
-            ],
-            dtype=np.float32,
-        )
-
-        # length T list of (C, 1, W, H) arrays
-        combined_images = []
-        for i in range(combined_array.shape[-1]):
-            lookback_frames = []
-            for j in range(refinement_lookback_frames):
-                frame_idx = i - (refinement_lookback_frames - 1) + j
-                if frame_idx < 0:
-                    frame_idx = 0
-                lookback_frames.append(combined_array[:, :, :, :, frame_idx])
-            lookback_array = np.concatenate(lookback_frames, axis=0)
-            combined_images.append(lookback_array)
-
-        # From nnUNet/nnunetv2/imageio/natural_image_reader_writer.py
-        natural_image_props = {"spacing": (999, 1, 1)}
-
-        # Apparently this is needed for ensembling
-        save_or_return_probabilities = len(refiner.list_of_parameters) > 1
-
-        image_iter = tqdm(combined_images, "Refining masks with nnUNet")
-        refined_masks = [
-            refiner.predict_single_npy_array(
-                img,
-                natural_image_props,
-                save_or_return_probabilities=save_or_return_probabilities,
-            )
-            for img in image_iter
-        ]
-        if save_or_return_probabilities:
-            refined_masks = cast(list[tuple[np.ndarray, np.ndarray]], refined_masks)
-            refined_masks = [rf[0] for rf in refined_masks]
-        else:
-            refined_masks = cast(list[np.ndarray], refined_masks)
-        # Convert list of torch tensors to a single numpy 3D array (W, H, T)
-        masks_array = np.stack(refined_masks, axis=-1).squeeze()
-
-    # We've seen some cases where nnUNet produces incomplete masks
-    # So fill holes if they exist
+    # Fill holes if they exist
     for i in range(masks_array.shape[-1]):
         masks_array[:, :, i] = binary_fill_holes(masks_array[:, :, i]).astype(  # type: ignore  # binary_fill_holes should return np.ndarray
             masks_array.dtype

@@ -20,7 +20,6 @@ from typing import TYPE_CHECKING
 import numpy as np
 import SimpleITK
 import torch
-from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 
 from sam2.build_sam import build_sam2_video_predictor
 
@@ -32,11 +31,6 @@ OUTPUT_PATH = Path("/output")
 
 # Defaults when running in the Docker container
 SAM2_CHECKPOINT = Path("./resources/sam2.1_hiera_small_trackrad_07_21.pt")
-NN_UNET_MODEL_FOLDER = Path("./resources/nnunet-model")
-NN_UNET_FOLDS = ("all",)
-NN_UNET_CHECKPOINT = "checkpoint_final.pth"
-NN_UNET_TILE_STEP_SIZE = 0.05
-NN_UNET_REFINEMENT_LOOKBACK_FRAMES = 5
 
 
 # Add runtime params for easier testing
@@ -44,11 +38,6 @@ def run(
     input_path: Path = INPUT_PATH,
     output_path: Path = OUTPUT_PATH,
     sam2_checkpoint: Path = SAM2_CHECKPOINT,
-    nnunet_model_folder: Path = NN_UNET_MODEL_FOLDER,
-    nnunet_folds: tuple[str] | tuple[int, ...] = NN_UNET_FOLDS,
-    nnunet_checkpoint_name: str = NN_UNET_CHECKPOINT,
-    nnunet_tile_step_size: float = NN_UNET_TILE_STEP_SIZE,
-    do_refinement: bool = True,
 ) -> int:
     loading_start_time = time.perf_counter()
 
@@ -71,25 +60,8 @@ def run(
     )
 
     ## BEGIN Additional setup
-    # 1. Load SAM2 for object tracking
+    # Load SAM2 for object tracking
     predictor = setup_sam2(sam2_checkpoint)
-    # 2. Load nnUNet for macrodata refinement
-    refiner = nnUNetPredictor(
-        # Change from defaults to improve inference speed
-        tile_step_size=nnunet_tile_step_size,  # Between 0 and 1
-        use_gaussian=True,
-        use_mirroring=True,
-        perform_everything_on_device=True,
-        device=torch.device("cuda", 0),
-        verbose=False,
-        verbose_preprocessing=False,
-        allow_tqdm=False,
-    )
-    refiner.initialize_from_trained_model_folder(
-        nnunet_model_folder.as_posix(),
-        use_folds=nnunet_folds,  # type: ignore  # use_folds type annotation is wrong
-        checkpoint_name=nnunet_checkpoint_name,
-    )
     ## END Additional setup
 
     print(f"Runtime loading:   {time.perf_counter() - loading_start_time:.5f} s")
@@ -100,15 +72,12 @@ def run(
 
     output_mri_linac_series_targets = run_algorithm(
         predictor,
-        refiner,
         case_id=input_path.name,
         frames=input_mri_linac_series,
         target=input_mri_linac_target,
         frame_rate=input_frame_rate,
         magnetic_field_strength=input_magnetic_field_strength,
         scanned_region=input_scanned_region,
-        refinement_lookback_frames=NN_UNET_REFINEMENT_LOOKBACK_FRAMES,
-        do_refinement=do_refinement,
         save_annotations=False,
     )
 

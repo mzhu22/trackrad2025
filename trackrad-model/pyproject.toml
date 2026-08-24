@@ -5,7 +5,6 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "nnunetv2",
     "pillow>=11.2.1",
     "sam-2[dev]",
     "simpleitk>=2.5.2",
@@ -30,7 +29,6 @@ torchvision = [
     { index = "pytorch-cu124", extra = "cu124" },
 ]
 sam-2 = { path = "sam2" }
-nnunetv2 = { path = "nnUNet", editable = true }
 
 [[tool.uv.index]]
 name = "pytorch-cpu"

@@ -27,7 +27,6 @@ RUN usermod -a -G video user
 USER user
 
 COPY --chown=user:user sam2 /app/sam2/
-COPY --chown=user:user nnUNet /app/nnUNet/
 
 RUN uv sync --extra cu124 \
     # TODO: Remove
