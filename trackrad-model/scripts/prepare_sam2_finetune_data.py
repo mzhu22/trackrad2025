@@ -4,9 +4,8 @@ PNGRawDataset), plus file-list manifests for the "manual", "semiauto" and
 "combined" training subsets.
 
 Converts the manually labeled training split, then writes the manual/semiauto/
-combined file lists. Run it once before propagate_labels.py (to convert the manual
-data) and again afterwards (to pick up the semi-automatic sequences it writes to
-the same folders).
+combined file lists. Run it after propagate_labels.py so the file lists pick up
+the semi-automatic sequences it writes to the same folders.
 
 Run with: uv run python scripts/prepare_sam2_finetune_data.py
 (from trackrad-model/)

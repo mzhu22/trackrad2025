@@ -2,12 +2,11 @@
 set -euo pipefail
 
 # Runs all 15 SAM2 fine-tuning runs (5 starting models x manual/semiauto/combined
-# training data) sequentially on this machine. Prerequisites, from trackrad-model/:
+# training data) sequentially on this machine, using the configs in
+# sam2/sam2/configs/sam2.1_training/. Prerequisites, from trackrad-model/:
 #   0. uv run python scripts/download_data.py                (data); bash resources/download_*.sh (checkpoints)
-#   1. uv run python scripts/prepare_sam2_finetune_data.py   (manual data)
-#   2. uv run python propagate_labels.py                     (semi-auto data)
-#   3. uv run python scripts/prepare_sam2_finetune_data.py   (file lists)
-#   4. uv run python scripts/make_finetune_configs.py
+#   1. uv run python propagate_labels.py                     (semi-auto data)
+#   2. uv run python scripts/prepare_sam2_finetune_data.py   (manual data + file lists)
 # Override the GPU count with NUM_GPUS (default 2).
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -1,7 +1,7 @@
 # @package _global_
 
 scratch:
-    resolution: @RESOLUTION@
+    resolution: 1024
     train_batch_size: 1
     num_train_workers: 10
     num_frames: 8
@@ -13,9 +13,9 @@ scratch:
 
 dataset:
     # PATHS to Dataset
-    img_folder: @DATA_ROOT@/JPEGImages
-    gt_folder: @DATA_ROOT@/Annotations
-    file_list_txt: @DATA_ROOT@/file_lists/@FILE_LIST@.txt
+    img_folder: ../../data/sam2_finetune/JPEGImages
+    gt_folder: ../../data/sam2_finetune/Annotations
+    file_list_txt: ../../data/sam2_finetune/file_lists/combined.txt
     multiplier: 1
 
 # Video transforms
@@ -68,7 +68,12 @@ trainer:
             scalp: 1
             trunk:
                 _target_: sam2.modeling.backbones.hieradet.Hiera
-@TRUNK@                drop_path_rate: 0.1
+                embed_dim: 96
+                num_heads: 1
+                stages: [1, 2, 7, 2]
+                global_att_blocks: [5, 7, 9]
+                window_pos_embed_bkg_spatial_size: [7, 7]
+                drop_path_rate: 0.1
             neck:
                 _target_: sam2.modeling.backbones.image_encoder.FpnNeck
                 position_encoding:
@@ -78,7 +83,7 @@ trainer:
                     scale: null
                     temperature: 10000
                 d_model: 256
-                backbone_channel_list: @CHANNELS@
+                backbone_channel_list: [768, 384, 192, 96]
                 fpn_top_down_levels: [2, 3] # output level 0 and 1 directly use the backbone features
                 fpn_interp_model: nearest
 
@@ -95,7 +100,7 @@ trainer:
                 self_attention:
                     _target_: sam2.modeling.sam.transformer.RoPEAttention
                     rope_theta: 10000.0
-                    feat_sizes: @FEAT@
+                    feat_sizes: [64, 64]
                     embedding_dim: 256
                     num_heads: 1
                     downsample_rate: 1
@@ -106,7 +111,7 @@ trainer:
                 cross_attention:
                     _target_: sam2.modeling.sam.transformer.RoPEAttention
                     rope_theta: 10000.0
-                    feat_sizes: @FEAT@
+                    feat_sizes: [64, 64]
                     rope_k_repeat: True
                     embedding_dim: 256
                     num_heads: 1
@@ -211,9 +216,9 @@ trainer:
                             training: true
                             video_dataset:
                                 _target_: training.dataset.vos_raw_dataset.PNGRawDataset
-                                img_folder: @DATA_ROOT@/JPEGImages
-                                gt_folder: @DATA_ROOT@/Annotations
-                                file_list_txt: @DATA_ROOT@/file_lists/@FILE_LIST@.txt
+                                img_folder: ../../data/sam2_finetune/JPEGImages
+                                gt_folder: ../../data/sam2_finetune/Annotations
+                                file_list_txt: ../../data/sam2_finetune/file_lists/combined.txt
                             sampler:
                                 _target_: training.dataset.vos_sampler.RandomUniformSampler
                                 num_frames: ${scratch.num_frames}
@@ -313,7 +318,7 @@ trainer:
 
             state_dict:
                 _target_: training.utils.checkpoint_utils.load_checkpoint_and_apply_kernels
-                checkpoint_path: @CKPT@
+                checkpoint_path: ../resources/sam2.1_hiera_tiny.pt
                 ckpt_state_dict_keys: ["model"]
 
 launcher:

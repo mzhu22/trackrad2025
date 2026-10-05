@@ -1,6 +1,6 @@
 # Notebooks
 
-Statistical analysis and figures for the manuscript. They read the per-case evaluation metrics in `metrics/` (one JSON per model/training-set combination: 5 models × zero-shot, manual, semi-auto and combined = 20 files) and write figures to `figures/`.
+Statistical analysis and figures for the manuscript. They read the per-case evaluation metrics in `metrics/` (one `<model>_<training set>.json` per combination: 5 models [`tiny`, `small`, `base_plus`, `large`, `medsam2`] × `zero_shot`, `manual`, `semiauto`, `combined` = 20 files) and write figures to `figures/`.
 
 ```console
 cd notebooks

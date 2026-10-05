@@ -10,7 +10,7 @@ Usage:
         --variant {t,s,b+,l,medsam2} \
         --checkpoint sam2/sam2_logs/configs/sam2.1_training/<config>.yaml/checkpoints/checkpoint.pt \
         --data-dir ../data/trackrad2025_labeled_test_data \
-        --out ../notebooks/metrics/<name>.json
+        --out ../notebooks/metrics/<model>_<training set>.json
 """
 
 from __future__ import annotations

@@ -15,7 +15,6 @@ Run with: uv run python scripts/download_data.py
 (from trackrad-model/)
 """
 
-import argparse
 from pathlib import Path
 
 from huggingface_hub import hf_hub_download, snapshot_download
@@ -89,23 +88,10 @@ def download_unlabeled_for(labels_dir: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument(
-        "--skip-labeled", action="store_true", help="skip the manually labeled splits"
-    )
-    parser.add_argument(
-        "--skip-semiauto",
-        action="store_true",
-        help="skip the semi-automatic labels and the unlabeled sequences they need",
-    )
-    args = parser.parse_args()
-
     DATA_ROOT.mkdir(exist_ok=True)
-    if not args.skip_labeled:
-        download_labeled()
-    if not args.skip_semiauto:
-        labels_dir = download_semiauto_labels()
-        download_unlabeled_for(labels_dir)
+    download_labeled()
+    labels_dir = download_semiauto_labels()
+    download_unlabeled_for(labels_dir)
 
 
 if __name__ == "__main__":

@@ -57,7 +57,7 @@ The pipeline processes one "case" (an MRI-linac video + a target mask on frame 0
 5. **`postprocessing.py`** — a MONAI-based `UNet`/`AttentionUnet` mask-refinement model and preprocessing transform pipeline; an earlier/alternate approach to mask refinement not used in the final `model.py` pipeline.
 6. **`propagate_labels.py`** — a standalone batch-labeling script that propagates the labeling-app's first-frame masks (downloaded beforehand into `data/bouncing-target/`) through the matching *unlabeled* TrackRAD2025 sequences to produce the semi-automatic training set — this is the "AI-assisted" half of the labeling-app workflow, run offline rather than interactively.
 7. **`resources/`** — checkpoint download scripts (SAM2.1 and MedSAM2); the `.pt` files are git-ignored.
-8. **`scripts/`** — `download_data.py` (all data into `data/`), data preparation (`prepare_sam2_finetune_data.py`), fine-tuning config generation (`make_finetune_configs.py` renders `finetune_template.yaml` into 15 git-ignored configs under `sam2/sam2/configs/sam2.1_training/`), the local launcher (`sam2-finetune-launch-all.sh`), and `eval_sam2_only.py`, which writes the metrics JSONs consumed by `notebooks/`.
+8. **`scripts/`** — `download_data.py` (all data into `data/`), data preparation (`prepare_sam2_finetune_data.py`), the local launcher (`sam2-finetune-launch-all.sh`, which runs the 15 committed configs in `sam2/sam2/configs/sam2.1_training/` from `trackrad-model/sam2/`), and `eval_sam2_only.py`, which writes the metrics JSONs consumed by `notebooks/`.
 
 ## Architecture: labeling-app
 
@@ -73,4 +73,4 @@ Both `model.py` (trackrad-model) and `hf_datasets.py` (labeling-app) independent
 
 ## Architecture: notebooks
 
-`stats.ipynb` and `stats_glmm.ipynb` compute significance statistics (GLMM-based, via `rpy2` calling into R) over metrics JSON files in `notebooks/metrics/` — these are the pre-computed evaluation outputs (Dice, Hausdorff, etc., named by model variant/checkpoint date, e.g. `02_28_l_trackrad_labeled_training.yaml.json`) referenced in the manuscript's results tables and figures under `notebooks/figures/`.
+`stats.ipynb` and `stats_glmm.ipynb` compute significance statistics (GLMM-based, via `rpy2` calling into R) over metrics JSON files in `notebooks/metrics/` — these are the pre-computed evaluation outputs (Dice, Hausdorff, etc., named `<model>_<training set>.json`, e.g. `large_manual.json`) referenced in the manuscript's results tables and figures under `notebooks/figures/`.
