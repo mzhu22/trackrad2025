@@ -5,12 +5,13 @@ ground-truth directory, then scores the results with evaluate.py. Runs
 non-interactively against a given checkpoint/data directory and writes the
 resulting metrics.json (e.g. into ../notebooks/metrics/).
 
+The checkpoint and output file are derived from --variant and --training-set:
+the output is ../notebooks/metrics/<variant>_<training set>.json.
+
 Usage:
-    uv run --project . python scripts/eval_sam2_only.py \
-        --variant {t,s,b+,l,medsam2} \
-        --checkpoint sam2/sam2_logs/configs/sam2.1_training/<config>.yaml/checkpoints/checkpoint.pt \
-        --data-dir ../data/trackrad2025_labeled_test_data \
-        --out ../notebooks/metrics/<model>_<training set>.json
+    uv run python scripts/eval_sam2_only.py \
+        --variant {tiny,small,base_plus,large,medsam2} \
+        --training-set {zero_shot,manual,semiauto,combined}
 """
 
 from __future__ import annotations
@@ -41,12 +42,36 @@ from sam2.build_sam import build_sam2_video_predictor
 # pick the right base config + image_size (matching each finetune config's
 # `scratch.resolution`) per variant instead of reusing that helper.
 VARIANT_MODEL_CFG = {
-    "t": ("configs/sam2.1/sam2.1_hiera_t.yaml", 1024),
-    "s": ("configs/sam2.1/sam2.1_hiera_s.yaml", 1024),
-    "b+": ("configs/sam2.1/sam2.1_hiera_b+.yaml", 1024),
-    "l": ("configs/sam2.1/sam2.1_hiera_l.yaml", 1024),
+    "tiny": ("configs/sam2.1/sam2.1_hiera_t.yaml", 1024),
+    "small": ("configs/sam2.1/sam2.1_hiera_s.yaml", 1024),
+    "base_plus": ("configs/sam2.1/sam2.1_hiera_b+.yaml", 1024),
+    "large": ("configs/sam2.1/sam2.1_hiera_l.yaml", 1024),
     "medsam2": ("configs/sam2.1/sam2.1_hiera_t.yaml", 512),
 }
+
+TRAINING_SETS = ["zero_shot", "manual", "semiauto", "combined"]
+
+# Per variant: original (zero-shot) checkpoint in resources/ and the prefix of
+# the fine-tuning config name (`<prefix>_<training set>_finetune`).
+VARIANT_CHECKPOINTS = {
+    "tiny": ("sam2.1_hiera_tiny.pt", "sam2.1_hiera_t"),
+    "small": ("sam2.1_hiera_small.pt", "sam2.1_hiera_s"),
+    "base_plus": ("sam2.1_hiera_base_plus.pt", "sam2.1_hiera_b+"),
+    "large": ("sam2.1_hiera_large.pt", "sam2.1_hiera_l"),
+    "medsam2": ("MedSAM2_latest.pt", "sam2.1_medsam2"),
+}
+
+
+def checkpoint_path(variant: str, training_set: str) -> Path:
+    zero_shot_ckpt, config_prefix = VARIANT_CHECKPOINTS[variant]
+    if training_set == "zero_shot":
+        return ROOT / "resources" / zero_shot_ckpt
+    config = f"{config_prefix}_{training_set}_finetune"
+    return (
+        ROOT
+        / "sam2/sam2_logs/configs/sam2.1_training"
+        / f"{config}.yaml/checkpoints/checkpoint.pt"
+    )
 
 
 def setup_sam2_for_variant(checkpoint: Path, variant: str):
@@ -221,29 +246,35 @@ def run_eval(checkpoint: Path, variant: str, data_dir: Path, work_dir: Path) -> 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--checkpoint", type=Path, required=True)
-    parser.add_argument("--variant", choices=sorted(VARIANT_MODEL_CFG), required=True)
-    parser.add_argument("--data-dir", type=Path, required=True)
+    parser.add_argument("--variant", choices=list(VARIANT_MODEL_CFG), required=True)
+    parser.add_argument("--training-set", choices=TRAINING_SETS, required=True)
+    parser.add_argument(
+        "--data-dir",
+        type=Path,
+        default=ROOT.parent / "data/trackrad2025_labeled_test_data",
+    )
     parser.add_argument(
         "--work-dir", type=Path, default=Path("./tmp/eval_sam2_only")
     )
-    parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
 
+    checkpoint = checkpoint_path(args.variant, args.training_set)
+    out = ROOT.parent / "notebooks/metrics" / f"{args.variant}_{args.training_set}.json"
+
     metrics_path = run_eval(
-        checkpoint=args.checkpoint,
+        checkpoint=checkpoint,
         variant=args.variant,
         data_dir=args.data_dir,
         work_dir=args.work_dir,
     )
 
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy(metrics_path, args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(metrics_path, out)
 
     metrics = json.loads(metrics_path.read_text())
     print("\nAggregates:")
     print(json.dumps(metrics["aggregates"], indent=2))
-    print(f"\nSaved metrics to {args.out}")
+    print(f"\nSaved metrics to {out}")
 
 
 if __name__ == "__main__":

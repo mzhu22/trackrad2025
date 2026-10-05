@@ -46,22 +46,10 @@ Run from `trackrad-model/` after downloading the data and checkpoints above.
 4. Evaluate all 20 model/training-set combinations (5 models × zero-shot, manual, semi-auto, combined) on the 38 test sequences, one run each:
 
    ```console
-   uv run python scripts/eval_sam2_only.py \
-       --variant t \
-       --checkpoint sam2/sam2_logs/configs/sam2.1_training/sam2.1_hiera_t_manual_finetune.yaml/checkpoints/checkpoint.pt \
-       --data-dir ../data/trackrad2025_labeled_test_data \
-       --out ../notebooks/metrics/tiny_manual.json
+   uv run python scripts/eval_sam2_only.py --variant tiny --training-set manual
    ```
 
-   Name each output `notebooks/metrics/<model>_<training set>.json` so the notebooks pick it up: `<model>` is one of `tiny`, `small`, `base_plus`, `large`, `medsam2`, and `<training set>` is one of `zero_shot`, `manual`, `semiauto`, `combined` (e.g. `tiny_manual.json`). Zero-shot runs use the original checkpoint from `resources/` as `--checkpoint`.
-
-   | Model | `--variant` | Zero-shot checkpoint | Fine-tuned config prefix |
-   | --- | --- | --- | --- |
-   | SAM2.1 Tiny (`tiny`) | `t` | `resources/sam2.1_hiera_tiny.pt` | `sam2.1_hiera_t` |
-   | SAM2.1 Small (`small`) | `s` | `resources/sam2.1_hiera_small.pt` | `sam2.1_hiera_s` |
-   | SAM2.1 Base+ (`base_plus`) | `b+` | `resources/sam2.1_hiera_base_plus.pt` | `sam2.1_hiera_b+` |
-   | SAM2.1 Large (`large`) | `l` | `resources/sam2.1_hiera_large.pt` | `sam2.1_hiera_l` |
-   | MedSAM2 (`medsam2`) | `medsam2` | `resources/MedSAM2_latest.pt` | `sam2.1_medsam2` |
+   `--variant` is one of `tiny`, `small`, `base_plus`, `large`, `medsam2` and `--training-set` is one of `zero_shot`, `manual`, `semiauto`, `combined`. The script picks the checkpoint (the original one in `resources/` for `zero_shot`, otherwise the fine-tuned one from step 3) and writes `notebooks/metrics/<variant>_<training set>.json` (e.g. `tiny_manual.json`), which the notebooks pick up. The test data is read from `data/trackrad2025_labeled_test_data` by default (`--data-dir` to override).
 
 5. Run the statistics and figures in `notebooks/` (see `notebooks/README.md`).
 
