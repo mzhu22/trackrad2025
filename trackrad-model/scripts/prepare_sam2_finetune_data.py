@@ -4,7 +4,7 @@ PNGRawDataset), plus file-list manifests for the "manual", "semiauto" and
 "combined" training subsets.
 
 Converts the manually labeled training split, then writes the manual/semiauto/
-combined file lists. Run it once before vos_inference.py (to convert the manual
+combined file lists. Run it once before propagate_labels.py (to convert the manual
 data) and again afterwards (to pick up the semi-automatic sequences it writes to
 the same folders).
 
@@ -97,7 +97,7 @@ def write_file_lists() -> None:
     """Write manual/semiauto/combined file lists from the converted case folders.
 
     Manual cases are TrackRAD2025 ids (e.g. A_017); semi-auto cases are named
-    `<patient>-<sequence>` by vos_inference.py, so the "-" tells them apart.
+    `<patient>-<sequence>` by propagate_labels.py, so the "-" tells them apart.
     """
     case_ids = sorted(d.name for d in ANN_ROOT.iterdir() if d.is_dir())
     manual_ids = [c for c in case_ids if "-" not in c]
@@ -117,7 +117,7 @@ def main() -> None:
     for case_dir in training_cases:
         convert_case(case_dir)
 
-    # Run again after vos_inference.py to include the semi-automatic sequences
+    # Run again after propagate_labels.py to include the semi-automatic sequences
     write_file_lists()
 
 

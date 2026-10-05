@@ -1,3 +1,13 @@
+"""Propagate first-frame masks through unlabeled MR sequences with SAM2.
+
+Takes the first-frame masks drawn with the labeling app (downloaded by
+scripts/download_data.py) and the matching unlabeled TrackRAD2025 sequences,
+and writes a JPEGImages/ + Annotations/ video dataset for fine-tuning.
+
+Run with: uv run python propagate_labels.py
+(from trackrad-model/)
+"""
+
 import argparse
 import json
 import shutil
@@ -6,14 +16,10 @@ from pathlib import Path
 import numpy as np
 import SimpleITK
 import torch
-from huggingface_hub import hf_hub_download, list_repo_files
 from PIL import Image
 from sam2.build_sam import build_sam2_video_predictor
 from sam2.sam2_video_predictor import SAM2VideoPredictor
 
-REPO_NAME = "mzhu22/bouncing-target"
-# Pinned dataset revision so the same set of labeled sequences is used on every run
-REPO_REVISION = "81adb9d0ea934edbe82eeca0403d06e3662a4875"
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -125,15 +131,20 @@ def vos_inference(predictor: SAM2VideoPredictor, jpegs_dir: Path, ann_png_path: 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Download labeled images from HF and propagate masks across MR sequences"
+        description="Propagate first-frame masks across unlabeled MR sequences with SAM2"
     )
     parser.add_argument("--gpu", type=int, default=0, help="GPU ID to use")
+    parser.add_argument(
+        "--labels-dir",
+        type=Path,
+        default=REPO_ROOT / "data" / "bouncing-target",
+        help="First-frame masks from the labeling app (mzhu22/bouncing-target)",
+    )
     parser.add_argument(
         "--unlabeled-dir",
         type=Path,
         default=REPO_ROOT / "data" / "trackrad2025_unlabeled_training_data",
-        help="Local copy of the unlabeled TrackRAD2025 data "
-        "(https://huggingface.co/datasets/LMUK-RADONC-PHYS-RES/TrackRAD2025)",
+        help="Unlabeled TrackRAD2025 sequences for the labeled patients",
     )
     parser.add_argument(
         "--output-dir",
@@ -147,6 +158,11 @@ def main():
         default=Path("./resources/sam2.1_hiera_small.pt"),
     )
     args = parser.parse_args()
+    if not args.labels_dir.is_dir():
+        parser.error(
+            f"{args.labels_dir} not found; run scripts/download_data.py first"
+        )
+
     torch.cuda.set_device(args.gpu)
 
     model_cfg = "configs/sam2.1/sam2.1_hiera_s.yaml"
@@ -156,28 +172,11 @@ def main():
         device="cuda",
     )
 
-    files = list_repo_files(REPO_NAME, repo_type="dataset", revision=REPO_REVISION)
-    png_files = [f for f in files if f.endswith(".png")]
+    for ann_png in sorted(args.labels_dir.glob("*/masks.png")):
+        # Folder name: <patient>-<sequence>-<frame>-<username>_<uuid>
+        patient, sequence, _ = ann_png.parent.name.split("-", 2)
 
-    for f in png_files:
-        ann_png = hf_hub_download(
-            repo_id=REPO_NAME,
-            filename=f,
-            repo_type="dataset",
-            revision=REPO_REVISION,
-        )
-
-        folder = ann_png.rsplit("/", 2)[-2]
-        slug, _ = folder.rsplit("_", 1)
-        patient, sequence, frame, _ = slug.split("-")
-
-        scores_file = hf_hub_download(
-            repo_id=REPO_NAME,
-            filename=f.replace("masks.png", "scores.json"),
-            repo_type="dataset",
-            revision=REPO_REVISION,
-        )
-        with open(scores_file) as sf:
+        with open(ann_png.with_name("scores.json")) as sf:
             scores_json = json.load(sf)
 
         scores = (

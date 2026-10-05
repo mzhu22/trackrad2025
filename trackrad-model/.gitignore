@@ -17,4 +17,5 @@ input/
 output/
 jpegs/
 tmp/
-resources/
+resources/*
+!resources/*.sh

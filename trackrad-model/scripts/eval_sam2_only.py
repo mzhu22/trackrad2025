@@ -9,7 +9,7 @@ Usage:
     uv run --project . python scripts/eval_sam2_only.py \
         --variant {t,s,b+,l,medsam2} \
         --checkpoint sam2/sam2_logs/configs/sam2.1_training/<config>.yaml/checkpoints/checkpoint.pt \
-        --data-dir ../data/trackrad2025_labeled_testing_data \
+        --data-dir ../data/trackrad2025_labeled_test_data \
         --out ../notebooks/metrics/<name>.json
 """
 
