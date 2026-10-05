@@ -31,8 +31,7 @@ uv run python scripts/download_data.py
 
 | What | Source | Lands in |
 | --- | --- | --- |
-| Labeled training data (50 sequences) | [TrackRAD2025](https://huggingface.co/datasets/LMUK-RADONC-PHYS-RES/TrackRAD2025) | `data/trackrad2025_labeled_training_data/` |
-| Labeled test data (30 testing + 8 pre-testing = 38 sequences) | TrackRAD2025 | `data/trackrad2025_labeled_{testing,pre-testing}_data/`, plus `data/trackrad2025_labeled_test_data/`, which links to all 38 cases |
+| TrackRAD2025 datatset | [TrackRAD2025](https://huggingface.co/datasets/LMUK-RADONC-PHYS-RES/TrackRAD2025) | `data/trackrad2025_labeled_*_data/` |
 | First-frame masks drawn with the labeling app (200 sequences) | [mzhu22/bouncing-target](https://huggingface.co/datasets/mzhu22/bouncing-target) | `data/bouncing-target/` |
 | Unlabeled sequences for those 200 labels | TrackRAD2025 | `data/trackrad2025_unlabeled_training_data/` |
 
@@ -41,16 +40,18 @@ uv run python scripts/download_data.py
 Run from `trackrad-model/` after downloading the data and checkpoints above.
 
 1. Propagate the first-frame labels through the unlabeled sequences (recommend a GPU): `uv run python propagate_labels.py`
-2. Convert the manually labeled training data and write the `manual`, `semiauto` and `combined` file lists (run after step 1 so the semi-auto sequences are included): `uv run python scripts/prepare_sam2_finetune_data.py`
-3. Fine-tune all 15 models (the paper used two A100s): `bash scripts/sam2-finetune-launch-all.sh`. Each run writes its checkpoint to `sam2/sam2_logs/configs/sam2.1_training/<config>.yaml/checkpoints/checkpoint.pt`, where `<config>` is `<model>_<dataset>_finetune` (e.g. `sam2.1_hiera_t_manual_finetune`; datasets are `manual`, `semiauto`, `combined`).
+2. Convert the manually labeled training data and write the `manual`, `semiauto` and `combined` file lists: `uv run python scripts/prepare_sam2_finetune_data.py`
+3. Fine-tune all 15 models (recommend GPU, the paper used two A100s): `bash scripts/sam2-finetune-launch-all.sh`. Each run writes its checkpoint to `sam2/sam2_logs/configs/sam2.1_training/<config>.yaml/checkpoints/checkpoint.pt`, where `<config>` is `<model>_<dataset>_finetune` (e.g. `sam2.1_hiera_t_manual_finetune`; datasets are `manual`, `semiauto`, `combined`).
 4. Evaluate all 20 model/training-set combinations (5 models × zero-shot, manual, semi-auto, combined) on the 38 test sequences, one run each:
 
    ```console
    uv run python scripts/eval_sam2_only.py --variant tiny --training-set manual
    ```
 
-   `--variant` is one of `tiny`, `small`, `base_plus`, `large`, `medsam2` and `--training-set` is one of `zero_shot`, `manual`, `semiauto`, `combined`. The script picks the checkpoint (the original one in `resources/` for `zero_shot`, otherwise the fine-tuned one from step 3) and writes `notebooks/metrics/<variant>_<training set>.json` (e.g. `tiny_manual.json`), which the notebooks pick up. The test data is read from `data/trackrad2025_labeled_test_data` by default (`--data-dir` to override).
+   - `--variant` is one of `tiny`, `small`, `base_plus`, `large`, `medsam2`
+   - `--training-set` is one of `zero_shot`, `manual`, `semiauto`, `combined`
+   - The script picks the checkpoint (the original one in `resources/` for `zero_shot`, otherwise the fine-tuned one from step 3) and writes `notebooks/metrics/<variant>_<training set>.json` (e.g. `tiny_manual.json`), which the notebooks pick up. The test data is read from `data/trackrad2025_labeled_test_data` by default (`--data-dir` to override).
 
-5. Run the statistics and figures in `notebooks/` (see `notebooks/README.md`).
+5. Run notebooks to compute statistics in `notebooks/` (see `notebooks/README.md`).
 
 The metrics JSONs behind the paper's tables and figures are already checked in to `notebooks/metrics/`, so step 5 works without running steps 1-4.
