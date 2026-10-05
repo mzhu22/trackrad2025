@@ -29,11 +29,11 @@ uv run python scripts/download_data.py
 
 `scripts/download_data.py` fetches:
 
-| What | Source | Lands in |
-| --- | --- | --- |
-| TrackRAD2025 datatset | [TrackRAD2025](https://huggingface.co/datasets/LMUK-RADONC-PHYS-RES/TrackRAD2025) | `data/trackrad2025_labeled_*_data/` |
-| First-frame masks drawn with the labeling app (200 sequences) | [mzhu22/bouncing-target](https://huggingface.co/datasets/mzhu22/bouncing-target) | `data/bouncing-target/` |
-| Unlabeled sequences for those 200 labels | TrackRAD2025 | `data/trackrad2025_unlabeled_training_data/` |
+| What | Source | Lands in | Size |
+| --- | --- | --- | --- |
+| TrackRAD2025 datatset | [TrackRAD2025](https://huggingface.co/datasets/LMUK-RADONC-PHYS-RES/TrackRAD2025) | `data/trackrad2025_labeled_*_data/` | ~1.0 GB |
+| First-frame masks drawn with the labeling app (200 sequences) | [mzhu22/bouncing-target](https://huggingface.co/datasets/mzhu22/bouncing-target) | `data/bouncing-target/` | ~0.3 MB |
+| Unlabeled sequences for those 200 labels | TrackRAD2025 | `data/trackrad2025_unlabeled_training_data/` | ~9.6 GB |
 
 ## Reproducing the paper
 
