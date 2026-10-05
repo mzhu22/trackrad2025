@@ -176,9 +176,7 @@ def run_eval(checkpoint: Path, variant: str, data_dir: Path, work_dir: Path) -> 
             sitk.ReadImage(str(case_dir / "targets" / f"{case_id}_first_label.mha"))
         )
         frame_rate = json.loads((case_dir / "frame-rate.json").read_text())
-        b_field_strength = json.loads(
-            (case_dir / "b-field-strength.json").read_text()
-        )
+        b_field_strength = json.loads((case_dir / "b-field-strength.json").read_text())
         scanned_region = json.loads((case_dir / "scanned-region.json").read_text())
 
         job_id = str(uuid.uuid4())
@@ -187,15 +185,12 @@ def run_eval(checkpoint: Path, variant: str, data_dir: Path, work_dir: Path) -> 
         start_time = datetime.now().isoformat()
         output_mask = run_algorithm(
             predictor,
-            None,
             case_id=case_id,
             frames=frames,
             target=target,
             frame_rate=frame_rate,
             magnetic_field_strength=b_field_strength,
             scanned_region=scanned_region,
-            refinement_lookback_frames=0,
-            do_refinement=False,
             save_annotations=False,
         ).astype(np.uint8)
         end_time = datetime.now().isoformat()
@@ -253,9 +248,7 @@ def main() -> None:
         type=Path,
         default=ROOT.parent / "data/trackrad2025_labeled_test_data",
     )
-    parser.add_argument(
-        "--work-dir", type=Path, default=Path("./tmp/eval_sam2_only")
-    )
+    parser.add_argument("--work-dir", type=Path, default=Path("./tmp/eval_sam2_only"))
     args = parser.parse_args()
 
     checkpoint = checkpoint_path(args.variant, args.training_set)
