@@ -6,14 +6,12 @@ import gradio as gr
 import numpy as np
 import SimpleITK as sitk
 import torch
-from gradio_image_annotation import image_annotator  # type: ignore
-
 from common import Frames
+from gradio_image_annotation import image_annotator  # type: ignore
 from hf_datasets import (
     SequenceStatus,
     download_image_files,
     get_completed_and_todo,
-    save_bad_image_report,
     save_masks,
 )
 from predict import PredictResult, predict_cpu, predict_gpu
@@ -200,23 +198,26 @@ with gr.Blocks() as demo:
     )
     with gr.Row():
         with gr.Column(scale=1):
+            gr.Markdown("## MR Sequence (up to 10 seconds)")
             video = gr.Video(
                 autoplay=True,
                 loop=True,
-                label="MR Sequence (up to 10 seconds)",
+                show_label=False,
             )
         with gr.Column(scale=2):
+            gr.Markdown("## First frame (Draw bounding boxes!)")
             annotator = image_annotator(
                 value=None,
                 sources=[],
                 disable_edit_boxes=True,
-                label="First frame (Draw bounding boxes!)",
+                show_label=False,
                 show_share_button=False,
                 show_clear_button=False,
             )
         with gr.Column(scale=2):
+            gr.Markdown("## AI-generated masks (Don't draw on this!)")
             masked_image = image_annotator(
-                label="AI-generated masks (Don't draw on this!)",
+                show_label=False,
                 sources=[],
                 show_share_button=False,
                 show_clear_button=False,
@@ -266,17 +267,9 @@ with gr.Blocks() as demo:
         patient, frames = sequence_label.split("-frames")
         return patient, int(frames)
 
-    with gr.Accordion("Problem with the image? Click here", open=False):
-        bad_image_comments = gr.Textbox(
-            label="Explain the issue(s)",
-            placeholder="e.g. too dark, blurry, too many artifacts, etc.",
-            lines=3,
-        )
-        bad_image_btn = gr.Button("Report Bad Image and Skip", variant="primary")
-
     with gr.Row():
-        get_masks_btn = gr.Button("Get Segmentation Masks")
-        save_btn = gr.Button("Submit", interactive=False, variant="primary")
+        get_masks_btn = gr.Button("GET SEGMENTATION MASKS")
+        save_btn = gr.Button("SUBMIT", interactive=False, variant="primary")
     with gr.Accordion("Advanced Controls", open=False):
         patient_dropdown = gr.Dropdown(
             choices=[],
@@ -306,14 +299,8 @@ with gr.Blocks() as demo:
         outputs=[sequence_state],
     )
 
-    def change_btn_state_after_masks(
-        save_btn_id, bad_image_btn_id, bad_image_comments_id
-    ):
-        return (
-            gr.update(save_btn_id, interactive=True),
-            gr.update(bad_image_btn_id, interactive=False),
-            gr.update(bad_image_comments_id, interactive=False),
-        )
+    def enable_save_btn(save_btn_id):
+        return gr.update(save_btn_id, interactive=True)
 
     masks_state = gr.State()
     get_masks_btn.click(
@@ -326,9 +313,9 @@ with gr.Blocks() as demo:
         outputs=[masked_image, masks_state],
     )
     masks_state.change(
-        fn=change_btn_state_after_masks,
-        inputs=[save_btn, bad_image_btn, bad_image_comments],
-        outputs=[save_btn, bad_image_btn, bad_image_comments],
+        fn=enable_save_btn,
+        inputs=[save_btn],
+        outputs=[save_btn],
     )
 
     def save_annotation(
@@ -345,27 +332,10 @@ with gr.Blocks() as demo:
         )
         return "Done"
 
-    def save_bad_image(
-        sequence: Frames, comments: str, profile: gr.OAuthProfile | None
-    ):
-        gr.Info("Saving... Page will reload when done.")
-        save_bad_image_report(
-            username=profile.username if profile else "anonymous",
-            sequence=sequence,
-            frame=0,  # TEMP
-            comments=comments,
-        )
-        return "Done"
-
     output_state = gr.State()
     save_btn.click(
         fn=save_annotation,
         inputs=[masks_state, sequence_state],
-        outputs=[output_state],
-    )
-    bad_image_btn.click(
-        fn=save_bad_image,
-        inputs=[sequence_state, bad_image_comments],
         outputs=[output_state],
     )
     output_state.change(fn=None, inputs=output_state, js="window.location.reload()")
