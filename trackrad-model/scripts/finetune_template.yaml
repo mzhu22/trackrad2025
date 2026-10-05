@@ -1,7 +1,7 @@
 # @package _global_
 
 scratch:
-    resolution: 512
+    resolution: @RESOLUTION@
     train_batch_size: 1
     num_train_workers: 10
     num_frames: 8
@@ -13,9 +13,9 @@ scratch:
 
 dataset:
     # PATHS to Dataset
-    img_folder: /rodata/mnradonc_dev/m299164/trackrad2025/data/sam2_finetune/JPEGImages
-    gt_folder: /rodata/mnradonc_dev/m299164/trackrad2025/data/sam2_finetune/Annotations
-    file_list_txt: /rodata/mnradonc_dev/m299164/trackrad2025/data/sam2_finetune/file_lists/alldata.txt
+    img_folder: @DATA_ROOT@/JPEGImages
+    gt_folder: @DATA_ROOT@/Annotations
+    file_list_txt: @DATA_ROOT@/file_lists/@FILE_LIST@.txt
     multiplier: 1
 
 # Video transforms
@@ -68,11 +68,7 @@ trainer:
             scalp: 1
             trunk:
                 _target_: sam2.modeling.backbones.hieradet.Hiera
-                embed_dim: 96
-                num_heads: 1
-                stages: [1, 2, 7, 2]
-                global_att_blocks: [5, 7, 9]
-                window_pos_embed_bkg_spatial_size: [7, 7]
+@TRUNK@                drop_path_rate: 0.1
             neck:
                 _target_: sam2.modeling.backbones.image_encoder.FpnNeck
                 position_encoding:
@@ -82,7 +78,7 @@ trainer:
                     scale: null
                     temperature: 10000
                 d_model: 256
-                backbone_channel_list: [768, 384, 192, 96]
+                backbone_channel_list: @CHANNELS@
                 fpn_top_down_levels: [2, 3] # output level 0 and 1 directly use the backbone features
                 fpn_interp_model: nearest
 
@@ -99,7 +95,7 @@ trainer:
                 self_attention:
                     _target_: sam2.modeling.sam.transformer.RoPEAttention
                     rope_theta: 10000.0
-                    feat_sizes: [32, 32]
+                    feat_sizes: @FEAT@
                     embedding_dim: 256
                     num_heads: 1
                     downsample_rate: 1
@@ -110,7 +106,7 @@ trainer:
                 cross_attention:
                     _target_: sam2.modeling.sam.transformer.RoPEAttention
                     rope_theta: 10000.0
-                    feat_sizes: [32, 32]
+                    feat_sizes: @FEAT@
                     rope_k_repeat: True
                     embedding_dim: 256
                     num_heads: 1
@@ -215,9 +211,9 @@ trainer:
                             training: true
                             video_dataset:
                                 _target_: training.dataset.vos_raw_dataset.PNGRawDataset
-                                img_folder: ${dataset.img_folder}
-                                gt_folder: ${dataset.gt_folder}
-                                file_list_txt: ${dataset.file_list_txt}
+                                img_folder: @DATA_ROOT@/JPEGImages
+                                gt_folder: @DATA_ROOT@/Annotations
+                                file_list_txt: @DATA_ROOT@/file_lists/@FILE_LIST@.txt
                             sampler:
                                 _target_: training.dataset.vos_sampler.RandomUniformSampler
                                 num_frames: ${scratch.num_frames}
@@ -317,7 +313,7 @@ trainer:
 
             state_dict:
                 _target_: training.utils.checkpoint_utils.load_checkpoint_and_apply_kernels
-                checkpoint_path: /rodata/mnradonc_dev/m299164/trackrad2025/trackrad-model/resources/MedSAM2_latest.pt # PATH to SAM 2.1 checkpoint
+                checkpoint_path: @CKPT@
                 ckpt_state_dict_keys: ["model"]
 
 launcher:
@@ -325,10 +321,7 @@ launcher:
     gpus_per_node: 4
     experiment_log_dir: null # Path to log directory, defaults to ./sam2_logs/${config_name}
 
-# SLURM args if running on a cluster
 submitit:
-    partition: gen-a100.p
-    account: m299164
     qos: null
     cpus_per_task: 10
     use_cluster: false

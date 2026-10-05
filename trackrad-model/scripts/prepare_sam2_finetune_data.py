@@ -1,7 +1,12 @@
 """Convert the labeled TrackRAD2025 data/ splits into a DAVIS-style JPEG/PNG
 video dataset for SAM2 VOS fine-tuning (training/dataset/vos_raw_dataset.py's
-PNGRawDataset), plus file-list manifests for the "alldata" and "notest"
-training subsets.
+PNGRawDataset), plus file-list manifests for the "manual", "semiauto" and
+"combined" training subsets.
+
+Converts the manually labeled training split, then writes the manual/semiauto/
+combined file lists. Run it once before vos_inference.py (to convert the manual
+data) and again afterwards (to pick up the semi-automatic sequences it writes to
+the same folders).
 
 Run with: uv run python scripts/prepare_sam2_finetune_data.py
 (from trackrad-model/)
@@ -21,8 +26,6 @@ ANN_ROOT = OUT_ROOT / "Annotations"
 FILE_LIST_ROOT = OUT_ROOT / "file_lists"
 
 TRAINING_SPLIT = "trackrad2025_labeled_training_data"
-TESTING_SPLIT = "trackrad2025_labeled_testing_data"
-PRETEST_SPLIT = "trackrad2025_labeled_pre-testing_data"
 
 # From trackrad-model/sam2/tools/vos_inference.py (kept identical for
 # PNGRawDataset(is_palette=True) compatibility).
@@ -90,22 +93,32 @@ def write_file_list(path: Path, case_ids: list[str]) -> None:
     path.write_text("\n".join(sorted(case_ids)) + "\n")
 
 
+def write_file_lists() -> None:
+    """Write manual/semiauto/combined file lists from the converted case folders.
+
+    Manual cases are TrackRAD2025 ids (e.g. A_017); semi-auto cases are named
+    `<patient>-<sequence>` by vos_inference.py, so the "-" tells them apart.
+    """
+    case_ids = sorted(d.name for d in ANN_ROOT.iterdir() if d.is_dir())
+    manual_ids = [c for c in case_ids if "-" not in c]
+    semiauto_ids = [c for c in case_ids if "-" in c]
+    write_file_list(FILE_LIST_ROOT / "manual.txt", manual_ids)
+    write_file_list(FILE_LIST_ROOT / "semiauto.txt", semiauto_ids)
+    write_file_list(FILE_LIST_ROOT / "combined.txt", manual_ids + semiauto_ids)
+    print(
+        f"manual.txt: {len(manual_ids)}, semiauto.txt: {len(semiauto_ids)}, "
+        f"combined.txt: {len(manual_ids) + len(semiauto_ids)} cases"
+    )
+
+
 def main() -> None:
     training_cases = sorted((DATA_ROOT / TRAINING_SPLIT).iterdir())
-    testing_cases = sorted((DATA_ROOT / TESTING_SPLIT).iterdir())
-    pretest_cases = sorted((DATA_ROOT / PRETEST_SPLIT).iterdir())
 
-    all_case_dirs = training_cases + testing_cases + pretest_cases
-    for case_dir in all_case_dirs:
+    for case_dir in training_cases:
         convert_case(case_dir)
 
-    alldata_ids = [d.name for d in all_case_dirs]
-    notest_ids = [d.name for d in training_cases + pretest_cases]
-
-    write_file_list(FILE_LIST_ROOT / "alldata.txt", alldata_ids)
-    write_file_list(FILE_LIST_ROOT / "notest.txt", notest_ids)
-    print(f"alldata.txt: {len(alldata_ids)} cases")
-    print(f"notest.txt: {len(notest_ids)} cases")
+    # Run again after vos_inference.py to include the semi-automatic sequences
+    write_file_lists()
 
 
 if __name__ == "__main__":

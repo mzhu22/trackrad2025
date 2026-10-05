@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository overview
 
-This is Team YouBetcha's (Mayo Clinic Radiation Oncology) submission to the [TrackRAD2025 Grand Challenge](https://trackrad2025.grand-challenge.org/): real-time tumor tracking in 2D MRI-linac video. It is an archival/posterity repo, not an actively-running project — see "Important caveats" below before assuming anything executes.
+This is Team YouBetcha's (Mayo Clinic Radiation Oncology) submission to the [TrackRAD2025 Grand Challenge](https://trackrad2025.grand-challenge.org/): real-time tumor tracking in 2D MRI-linac video. It also contains the code and metrics behind the accompanying SAM2/MedSAM2 fine-tuning manuscript — see "Important caveats" below.
 
 Three independent sub-projects, each with its own `pyproject.toml`/`uv.lock` and no shared dependencies between them (see `trackrad2025.code-workspace` for the VS Code multi-root layout):
 
@@ -16,9 +16,9 @@ Three independent sub-projects, each with its own `pyproject.toml`/`uv.lock` and
 
 ## Important caveats
 
-- **`trackrad-model` and its scripts do not run as-is.** They were developed on Mayo Clinic's Radiation Oncology HPC cluster and reference absolute filepaths (e.g. `/rodata/mnradonc_dev/m299164/trackrad/...`) and data that don't exist in this repo. Treat `trackrad-model/scripts/*.sh` and the notebooks under `trackrad-model/notebooks/` and `notebooks/` as reference/documentation of what was done, not as runnable entrypoints.
+- Data and checkpoints are not checked in. See the top-level `README.md` for where to download them (public HF datasets `LMUK-RADONC-PHYS-RES/TrackRAD2025` and `mzhu22/bouncing-target`) and the order in which to run the preparation, fine-tuning and evaluation scripts. The Docker image additionally expects a `resources/` directory with checkpoints.
 - `trackrad-model/sam2/` is a vendored copy of the upstream [facebookresearch/sam2](https://github.com/facebookresearch/sam2) repo (installed as a local path dependency via `uv`, see `trackrad-model/pyproject.toml`'s `[tool.uv.sources]`). Don't assume changes here are TrackRAD-specific — check upstream before modifying.
-- `labeling-app` mostly works locally, but "Submit"/save actions push to a private HuggingFace dataset (`mzhu22/bouncing-target`) using a `HF_TOKEN` env var, so submission won't work without credentials.
+- `labeling-app` works locally, but "Submit"/save actions push to the HuggingFace dataset `mzhu22/bouncing-target` using a `HF_TOKEN` env var (write access), so submission won't work without credentials. Reading the dataset is public.
 
 ## Development commands
 
@@ -32,7 +32,7 @@ uv sync
 uv run gradio app.py
 ```
 
-### trackrad-model (Docker-only; not runnable outside the container without the missing HPC data/resources)
+### trackrad-model (Docker image; fine-tuning/eval scripts need a GPU plus downloaded data and checkpoints)
 
 ```console
 cd trackrad-model
@@ -55,8 +55,8 @@ The pipeline processes one "case" (an MRI-linac video + a target mask on frame 0
 3. **`evaluate.py`** — the Grand Challenge evaluation container's scoring script (not run by contestants directly). Computes Dice, 95th-percentile Hausdorff distance, average surface distance, 2D center-of-mass error, and a custom dosimetric metric (`DoseMetric`, via a shifted-point-cloud DVH approximation) per case, using a vendored `monai_metrics.py` reimplementation and `minimal_mha_simpleitk.py` (a dependency-light `.mha` reader/writer) instead of importing MONAI/SimpleITK directly in the eval container.
 4. **`helpers.py`** — `run_prediction_processing` parallelizes `evaluate.py`'s per-case scoring across processes, capped by `GRAND_CHALLENGE_MAX_WORKERS`.
 5. **`postprocessing.py`** — a MONAI-based `UNet`/`AttentionUnet` mask-refinement model and preprocessing transform pipeline; an earlier/alternate approach to mask refinement not used in the final `model.py` pipeline.
-6. **`vos_inference.py`** — a standalone batch-labeling script (uses `submitit` for Slurm job submission) that runs SAM2 over the *unlabeled* HuggingFace dataset to pre-populate masks — this is the "AI-assisted" half of the labeling-app workflow, run offline rather than interactively.
-7. **`scripts/`** — Slurm shell scripts and SAM2 finetuning utilities for Mayo's cluster. Not portable outside that environment (hardcoded paths).
+6. **`vos_inference.py`** — a standalone batch-labeling script that propagates the labeling-app's first-frame masks through the *unlabeled* TrackRAD2025 sequences to produce the semi-automatic training set — this is the "AI-assisted" half of the labeling-app workflow, run offline rather than interactively.
+7. **`scripts/`** — data preparation (`prepare_sam2_finetune_data.py`), fine-tuning config generation (`make_finetune_configs.py` renders `finetune_template.yaml` into 15 git-ignored configs under `sam2/sam2/configs/sam2.1_training/`), the local launcher (`sam2-finetune-launch-all.sh`), and `eval_sam2_only.py`, which writes the metrics JSONs consumed by `notebooks/`.
 
 ## Architecture: labeling-app
 

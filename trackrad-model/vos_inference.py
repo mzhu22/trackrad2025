@@ -1,34 +1,20 @@
 import argparse
-import itertools
 import json
 import shutil
-from datetime import date
 from pathlib import Path
 
 import numpy as np
 import SimpleITK
-import submitit
 import torch
 from huggingface_hub import hf_hub_download, list_repo_files
 from PIL import Image
 from sam2.build_sam import build_sam2_video_predictor
 from sam2.sam2_video_predictor import SAM2VideoPredictor
 
-HF_TOKEN = "REDACTED"
 REPO_NAME = "mzhu22/bouncing-target"
-TRACKRAD_DATASET_PATH = Path(
-    "/rodata/mnradonc_dev/m299164/trackrad/datasets/trackrad2025/trackrad2025_unlabeled_training_data"
-)
-current_date = date.today()
-output_dataset = Path(
-    f"/rodata/mnradonc_dev/m299164/trackrad/datasets/bouncing-target-labeled-{current_date.isoformat()}"
-)
-output_dataset.mkdir(parents=True, exist_ok=True)
-
-prev_date = date(2025, 7, 1)
-prev_dataset = Path(
-    f"/rodata/mnradonc_dev/m299164/trackrad/datasets/bouncing-target-labeled-{prev_date.isoformat()}"
-)
+# Pinned dataset revision so the same set of labeled sequences is used on every run
+REPO_REVISION = "81adb9d0ea934edbe82eeca0403d06e3662a4875"
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def save_mri_series_as_jpegs(input_mri_linac_series, jpegs_path: Path) -> Path:
@@ -138,48 +124,47 @@ def vos_inference(predictor: SAM2VideoPredictor, jpegs_dir: Path, ann_png_path: 
 
 
 def main():
-    sam2_checkpoint = "./resources/sam2.1_hiera_small.pt"
-    model_cfg = "configs/sam2.1/sam2.1_hiera_s.yaml"
-
     parser = argparse.ArgumentParser(
         description="Download labeled images from HF and propagate masks across MR sequences"
     )
     parser.add_argument("--gpu", type=int, default=0, help="GPU ID to use")
-
+    parser.add_argument(
+        "--unlabeled-dir",
+        type=Path,
+        default=REPO_ROOT / "data" / "trackrad2025_unlabeled_training_data",
+        help="Local copy of the unlabeled TrackRAD2025 data "
+        "(https://huggingface.co/datasets/LMUK-RADONC-PHYS-RES/TrackRAD2025)",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=REPO_ROOT / "data" / "sam2_finetune",
+        help="Output root; writes JPEGImages/ and Annotations/ subdirectories",
+    )
+    parser.add_argument(
+        "--checkpoint",
+        type=Path,
+        default=Path("./resources/sam2.1_hiera_small.pt"),
+    )
     args = parser.parse_args()
     torch.cuda.set_device(args.gpu)
 
+    model_cfg = "configs/sam2.1/sam2.1_hiera_s.yaml"
     predictor = build_sam2_video_predictor(
         config_file=model_cfg,
-        ckpt_path=sam2_checkpoint,
+        ckpt_path=str(args.checkpoint),
         device="cuda",
     )
 
-    files = list_repo_files(
-        REPO_NAME,
-        repo_type="dataset",
-        token=HF_TOKEN,
-        revision="81adb9d0ea934edbe82eeca0403d06e3662a4875",
-    )
+    files = list_repo_files(REPO_NAME, repo_type="dataset", revision=REPO_REVISION)
     png_files = [f for f in files if f.endswith(".png")]
-
-    processed_paths = [
-        path
-        for path in itertools.chain(
-            prev_dataset.glob("JPEGImages/*"),
-            # For idempotency if the script fails on the current dataset
-            output_dataset.glob("JPEGImages/*"),
-        )
-        if path.is_dir()
-    ]
-    processed_sequences = [tuple(path.name.split("-")) for path in processed_paths]
 
     for f in png_files:
         ann_png = hf_hub_download(
             repo_id=REPO_NAME,
             filename=f,
             repo_type="dataset",
-            token=HF_TOKEN,
+            revision=REPO_REVISION,
         )
 
         folder = ann_png.rsplit("/", 2)[-2]
@@ -190,10 +175,10 @@ def main():
             repo_id=REPO_NAME,
             filename=f.replace("masks.png", "scores.json"),
             repo_type="dataset",
-            token=HF_TOKEN,
+            revision=REPO_REVISION,
         )
-        with open(scores_file) as f:
-            scores_json = json.load(f)
+        with open(scores_file) as sf:
+            scores_json = json.load(sf)
 
         scores = (
             [scores_json[0]]
@@ -203,7 +188,9 @@ def main():
         if any(s < 0.8 for s in scores):
             print(patient, sequence, scores)
 
-        if (patient, sequence) in processed_sequences:
+        jpegs_dir = args.output_dir / "JPEGImages" / f"{patient}-{sequence}"
+        ann_dir = args.output_dir / "Annotations" / f"{patient}-{sequence}"
+        if ann_dir.is_dir() and any(ann_dir.iterdir()):
             print(f"Skipping {patient}-{sequence} as it is already processed.")
             continue
 
@@ -211,19 +198,13 @@ def main():
 
         sequence_idx = sequence if sequence != "1" else ""
         sequence_path = (
-            TRACKRAD_DATASET_PATH
-            / patient
-            / "images"
-            / f"{patient}_frames{sequence_idx}.mha"
+            args.unlabeled_dir / patient / "images" / f"{patient}_frames{sequence_idx}.mha"
         )
         sequence_image = SimpleITK.ReadImage(str(sequence_path))
         sequence_array = SimpleITK.GetArrayFromImage(sequence_image)
 
         # Clip sequences
         sequence_array = sequence_array[:, :, :200]
-
-        jpegs_dir = output_dataset / "JPEGImages" / f"{patient}-{sequence}"
-        ann_dir = output_dataset / "Annotations" / f"{patient}-{sequence}"
 
         save_mri_series_as_jpegs(sequence_array, jpegs_dir)
         per_frame_inferred_masks = vos_inference(predictor, jpegs_dir, Path(ann_png))
@@ -232,17 +213,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-    # executor = submitit.AutoExecutor(folder="submitit_logs")
-    # executor.update_parameters(
-    #     gpus_per_node=4,
-    #     num_nodes=1,
-    #     timeout_min=60 * 24,  # 24 hours
-    #     slurm_partition="gen-a100p",
-    #     account="m299164",
-    # )
-    # job = executor.submit(main)
-    # print(job.job_id)
-
-    # output = job.result()
-    # print(output)

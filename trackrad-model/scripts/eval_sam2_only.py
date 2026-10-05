@@ -1,16 +1,16 @@
 """SAM2-only evaluation driver for a fine-tuned checkpoint.
 
 Runs the SAM2 video predictor (no nnU-Net refinement) over every case in a
-ground-truth directory, then scores the results with evaluate.py. Mirrors
-the ad-hoc flow in notebooks/eval_sam_only.ipynb, updated to run non-
-interactively against a given checkpoint/data directory and to write its
-metrics.json into notebooks/metrics/.
+ground-truth directory, then scores the results with evaluate.py. Runs
+non-interactively against a given checkpoint/data directory and writes the
+resulting metrics.json (e.g. into ../notebooks/metrics/).
 
 Usage:
     uv run --project . python scripts/eval_sam2_only.py \
+        --variant {t,s,b+,l,medsam2} \
         --checkpoint sam2/sam2_logs/configs/sam2.1_training/<config>.yaml/checkpoints/checkpoint.pt \
         --data-dir ../data/trackrad2025_labeled_testing_data \
-        --out notebooks/metrics/<name>.json
+        --out ../notebooks/metrics/<name>.json
 """
 
 from __future__ import annotations
@@ -41,7 +41,10 @@ from sam2.build_sam import build_sam2_video_predictor
 # pick the right base config + image_size (matching each finetune config's
 # `scratch.resolution`) per variant instead of reusing that helper.
 VARIANT_MODEL_CFG = {
+    "t": ("configs/sam2.1/sam2.1_hiera_t.yaml", 1024),
+    "s": ("configs/sam2.1/sam2.1_hiera_s.yaml", 1024),
     "b+": ("configs/sam2.1/sam2.1_hiera_b+.yaml", 1024),
+    "l": ("configs/sam2.1/sam2.1_hiera_l.yaml", 1024),
     "medsam2": ("configs/sam2.1/sam2.1_hiera_t.yaml", 512),
 }
 

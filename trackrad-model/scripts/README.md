@@ -1,7 +1,11 @@
 # Scripts
 
-Shell scripts and utilities for SAM2 finetuning and evaluation.
+Utilities for preparing data, generating configs, fine-tuning SAM2/MedSAM2, and evaluating checkpoints. Run from `trackrad-model/` unless noted. See the top-level README for the full reproduction order.
 
-These scripts were written for Mayo Clinic's Radiation Oncology HPC cluster, with all filepaths relative to that environment.
-
-Left here for posterity. Not guaranteed to work.
+| File | Purpose |
+| --- | --- |
+| `prepare_sam2_finetune_data.py` | Converts the manually labeled TrackRAD2025 training split into the JPEG/PNG layout SAM2 trains on, and writes the `manual`, `semiauto` and `combined` file lists. |
+| `finetune_template.yaml`, `make_finetune_configs.py` | Render the 15 fine-tuning configs (5 starting models × 3 training sets) into `sam2/sam2/configs/sam2.1_training/`. The generated configs contain absolute local paths and are git-ignored. |
+| `sam2-finetune-launch-all.sh` | Trains all 15 configs sequentially on the local machine (`NUM_GPUS`, default 2). |
+| `eval_sam2_only.py` | Runs a checkpoint over the labeled test split and writes a metrics JSON (as in `../notebooks/metrics/`). |
+| `setup_vm.sh` | Environment setup for a fresh Linux GPU VM. |
