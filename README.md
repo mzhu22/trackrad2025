@@ -1,6 +1,6 @@
 # Semi-automated labeling and object tracking for MRgRT using SAM2
 
-Supporting code and data for Semi-Automated Image Labeling and Object Tracking for MR-Guided Radiotherapy Using a Foundation Vision Model.
+Supporting code and data for [Semi-Automated Image Labeling and Object Tracking for MR-Guided Radiotherapy Using a Foundation Vision Model](https://doi.org/10.1007/s10278-026-02387-z).
 
 The paper studies the use of [Segment Anything Model 2](https://github.com/facebookresearch/sam2) (SAM2) and MedSAM2, foundation models for video object segmentation. We also developed a web application for SAM2-assisted image annotation to generate training data.
 
